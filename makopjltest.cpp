@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 #endif
 {
     CEDLStringVect testFiles;
-    testFiles.append(L"TEST\\printtickettestspjl.pcl");
+    testFiles.append(L"printtickettestspjl.pcl");
 
 	try
     {
