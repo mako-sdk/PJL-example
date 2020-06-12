@@ -18,8 +18,7 @@ using namespace EDL;
 static bool ReportJobTicketItem(const IDOMJobTkNodePtr& node)
 {
     // Get name (without namespace prefix)
-    EDLQName qName;
-    node->getQName(qName);
+    EDLQName qName = node->getQName();
     std::wcout << L"    Parameter " << qName.getName() << L" \tValue ";
 
     const IDOMJobTkNode::eDOMJobTkNodeType nodeType = node->getJobTkNodeType();
@@ -30,8 +29,7 @@ static bool ReportJobTicketItem(const IDOMJobTkNodePtr& node)
 	    {
 	        // Report value
 	        const IDOMJobTkValuePtr jobTkValue = node->getChildValue();
-            PValue pVal;
-            jobTkValue->getValue(pVal);
+            PValue pVal = jobTkValue->getValue();
             switch (pVal.getType())
             {
 	            case PValue::T_UNASSIGNED:
@@ -65,8 +63,7 @@ static bool ReportJobTicketItem(const IDOMJobTkNodePtr& node)
 	            auto nodeType = childNode->getJobTkNodeType();
 	            if (childNode->getJobTkNodeType() == IDOMJobTkNode::eDOMJobTkPTNodeOption)
 	            {
-	                EDLQName qName;
-	                childNode->getQName(qName);
+	                EDLQName qName = childNode->getQName();
 	                std::wcout << qName.getName() << std::endl;
 	            }
 	            return true;
@@ -82,14 +79,23 @@ static bool ReportJobTicketItem(const IDOMJobTkNodePtr& node)
     return true;
 }
 
+struct sTestFile
+{
+    String filePath;
+    eFileFormat type;
+
+    sTestFile(String f, eFileFormat e) : filePath(f), type(e) 
+	{ }
+};
+
 #ifdef _WIN32
 int wmain(int argc, wchar_t *argv[])
 #else
 int main(int argc, char *argv[])
 #endif
 {
-    CEDLStringVect testFiles;
-    testFiles.append(L"printtickettestspjl.pcl");
+    std::vector <sTestFile> testFiles;
+    testFiles.emplace_back(sTestFile(L"printtickettestspjl.pcl", eFFUnknown));
 
 	try
     {
@@ -98,10 +104,10 @@ int main(int argc, char *argv[])
         IJawsMako::enableAllFeatures(jawsMako);
 
 		// *** Example 1: Process the PJL header only ***
-        for (int testFileIndex = 0; testFileIndex < testFiles.size(); testFileIndex++)
+        for (uint32 index = 0; index < testFiles.size(); index++)
         {
-            // Get the stream ready
-            IInputPushbackStreamPtr prnStream = IInputStream::createPushbackStream(jawsMako, IInputStream::createFromFile(jawsMako, testFiles[testFileIndex]));
+        	// Get the stream ready
+            IInputPushbackStreamPtr prnStream = IInputStream::createPushbackStream(jawsMako, IInputStream::createFromFile(jawsMako, testFiles[index].filePath));
             IPJLParserPtr pjlParser = IPJLParser::create(jawsMako);
 
             // Open the stream
@@ -110,21 +116,21 @@ int main(int argc, char *argv[])
                 throw std::runtime_error("Could not open input stream");
             }
 
-            std::wcout << testFiles[testFileIndex] << L": ";
+            std::wcout << testFiles[index].filePath << L": ";
 
             IPJLParser::ePjlResult pjlResult;
             // Repeatedly parse PJL until we get to the end of the stream
             try {
                 while ((pjlResult = pjlParser->parse(prnStream)) != IPJLParser::ePREndOfFile)
                 {
-                    String lang = L"PCL";
+                    testFiles[index].type = eFFPCL5;
                     switch (pjlResult)
                     {
                     case IPJLParser::ePREnterPclXl:
-                        lang += L"/XL";
+                        testFiles[index].type = eFFPCLXL;
                     case IPJLParser::ePREnterPcl:
                     {
-                        std::wcout << lang << L" ";
+                   		std::wcout << (testFiles[index].type == eFFPCL5 ? "PCL5" : "PCL/XL ") ;
                         IPJLParser::CPjlAttributeVect attributes = pjlParser->getAttributes("SET", "DUPLEX");
                         if (attributes.size() != 0)
                         {
@@ -194,13 +200,11 @@ int main(int argc, char *argv[])
 
         // *** Example 2: Process the print tickets ***
 
-        IPCL5InputPtr input = IPCL5Input::create(jawsMako);
-
         // Look at each test file
-		for (int testFileIndex = 0; testFileIndex < testFiles.size(); testFileIndex++)
+		for (sTestFile testFile : testFiles)
         {
-            IDocumentAssemblyPtr assembly = input->open(testFiles[testFileIndex]);
-            auto n = assembly->getNumDocuments();
+            IInputPtr input = IInput::create(jawsMako, testFile.type);
+			IDocumentAssemblyPtr assembly = input->open(testFile.filePath);
             
 			// Look at each document
 			for (int documentIndex = 0; documentIndex < assembly->getNumDocuments(); documentIndex++)
@@ -209,7 +213,7 @@ int main(int argc, char *argv[])
                 uint32 numPages = document->getNumPages();
                 if (numPages > 0)
                 {
-                    std::wcout << L"Document " << documentIndex + 1 << L" in " << testFiles[testFileIndex] << L":" << std::endl;
+                    std::wcout << L"Document " << documentIndex + 1 << L" in " << testFile.filePath << L":" << std::endl;
 
                     // Get document-level print ticket
                     std::wcout << L"  Document-level print ticket:" << std::endl;
@@ -217,8 +221,7 @@ int main(int argc, char *argv[])
                     if (jobTicket)
                     {
                         IDOMJobTkContentPtr jobTicketContent = jobTicket->getContent();
-                        IDOMJobTkNodePtr node;
-                        jobTicketContent->getRootNode(node);
+                        IDOMJobTkNodePtr node = jobTicketContent->getRootNode();
                         while (node)
                         {
                             ReportJobTicketItem(node);
@@ -237,8 +240,7 @@ int main(int argc, char *argv[])
                         if (pageJobTicket)
                         {
                             IDOMJobTkContentPtr pageJobTicketContent = pageJobTicket->getContent();
-                            IDOMJobTkNodePtr node;
-                            pageJobTicketContent->getRootNode(node);
+                            IDOMJobTkNodePtr node = pageJobTicketContent->getRootNode();
 
                             while (node)
                             {
