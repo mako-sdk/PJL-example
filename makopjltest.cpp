@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2020 Global Graphics Software Ltd. All rights reserved
  *
- *  Simple sample application to report on job parameters in PCL, using Mako APIs.
+ *  Simple sample application to report on job parameters in PJL-wrapped PCL, PCL/XL or Postscript, using Mako APIs.
  */
 
 #include <algorithm>
